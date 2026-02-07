@@ -1086,6 +1086,98 @@ switch ($method) {
 
 ---
 
+## 7. Arquivo .htaccess para a API (api/.htaccess)
+
+```apache
+# Habilitar CORS para requisições do React
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "http://localhost:5173"
+    Header set Access-Control-Allow-Credentials "true"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Tratar requisições OPTIONS (preflight)
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+```
+
+---
+
+## 8. Deploy do Frontend React no Apache (Opcional)
+
+Se quiser fazer deploy do frontend React no mesmo servidor Apache (ao invés de usar o Lovable preview), siga os passos:
+
+### 8.1. Build do Projeto React
+Execute no terminal do projeto Lovable (ou baixe e execute localmente):
+```bash
+npm run build
+```
+
+Isso criará a pasta `dist/` com os arquivos estáticos.
+
+### 8.2. Copiar para o XAMPP
+Copie o conteúdo da pasta `dist/` para `C:\xampp\htdocs\admin-senhas\` (NÃO dentro da pasta `api/`).
+
+Estrutura final:
+```
+C:\xampp\htdocs\admin-senhas\
+├── index.html          <- arquivo do React
+├── assets/             <- JS e CSS compilados
+├── api/                <- backend PHP
+│   ├── config/
+│   ├── models/
+│   ├── auth/
+│   ├── lojas/
+│   ├── sistemas/
+│   ├── funcionarios/
+│   ├── acessos/
+│   └── .htaccess
+└── .htaccess           <- arquivo para SPA routing
+```
+
+### 8.3. Arquivo .htaccess para o Frontend React (raiz: `C:\xampp\htdocs\admin-senhas\.htaccess`)
+
+```apache
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /admin-senhas/
+    
+    # Não reescrever arquivos e diretórios existentes
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Não reescrever requisições para a API
+    RewriteCond %{REQUEST_URI} !^/admin-senhas/api/
+    
+    # Redirecionar tudo para index.html (React Router)
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+# Tipos MIME corretos para assets
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
+</IfModule>
+```
+
+### 8.4. Atualizar Configuração da API
+Se o frontend estiver rodando no mesmo servidor, atualize `src/config/api.ts` ANTES do build:
+
+```typescript
+// Para deploy no mesmo servidor Apache
+export const API_BASE_URL = '/admin-senhas/api';
+```
+
+### 8.5. Habilitar mod_rewrite no Apache
+1. Abra `C:\xampp\apache\conf\httpd.conf`
+2. Descomente (remova o #): `LoadModule rewrite_module modules/mod_rewrite.so`
+3. Procure por `AllowOverride None` dentro de `<Directory "C:/xampp/htdocs">` e mude para `AllowOverride All`
+4. Reinicie o Apache
+
+---
+
 ## Instruções de Instalação
 
 ### 1. Configurar MySQL
@@ -1096,17 +1188,27 @@ switch ($method) {
 ### 2. Configurar Backend PHP
 1. Crie a pasta `C:\xampp\htdocs\admin-senhas\api\`
 2. Copie todos os arquivos PHP para suas respectivas pastas
-3. Verifique se o Apache tem mod_rewrite habilitado
+3. Crie o arquivo `.htaccess` dentro da pasta `api/` (seção 7)
+4. Verifique se o Apache tem mod_rewrite habilitado
 
-### 3. Configurar Frontend
+### 3. Configurar Frontend (Opção A: Lovable Preview)
 1. No arquivo `src/config/api.ts`, a URL já está configurada para `http://localhost/admin-senhas/api`
-2. Se estiver usando outra porta ou caminho, ajuste conforme necessário
+2. Acesse pelo preview do Lovable
+
+### 3. Configurar Frontend (Opção B: Deploy no Apache)
+1. Siga as instruções da seção 8
+2. Acesse: `http://localhost/admin-senhas/`
 
 ### 4. Testar
-1. Acesse o frontend React (Lovable preview ou localhost:5173)
-2. Faça login com: **admin / admin123**
+1. Faça login com: **admin / admin123**
 
-### CORS no XAMPP
-Se tiver problemas de CORS, edite `C:\xampp\apache\conf\httpd.conf`:
+### Problemas de CORS no XAMPP
+Se tiver problemas de CORS ao usar o Lovable preview, edite `C:\xampp\apache\conf\httpd.conf`:
 1. Descomente a linha: `LoadModule headers_module modules/mod_headers.so`
 2. Reinicie o Apache
+
+### Problemas de 404 nos Assets (JS/CSS)
+1. Verifique se o `.htaccess` está na raiz do projeto (`C:\xampp\htdocs\admin-senhas\.htaccess`)
+2. Confirme que `mod_rewrite` está habilitado
+3. Confirme que `AllowOverride All` está configurado para o diretório
+4. Reinicie o Apache após as alterações
